@@ -1,9 +1,13 @@
 //
-//  TestDateInRegion.swift
-//  SwiftDate-iOS Tests
+//  SwiftDate
+//  Parse, validate, manipulate, and display dates, time and timezones in Swift
 //
-//  Created by Daniele Margutti on 16/06/2018.
-//  Copyright © 2018 SwiftDate. All rights reserved.
+//  Created by Daniele Margutti
+//   - Web: https://www.danielemargutti.com
+//   - Twitter: https://twitter.com/danielemargutti
+//   - Mail: hello@danielemargutti.com
+//
+//  Copyright © 2019 Daniele Margutti. Licensed under MIT License.
 //
 
 import SwiftDate
@@ -73,6 +77,10 @@ class TestDateInRegion: XCTestCase {
 		XCTAssert( (msecsFromEpochInRegion.date.timeIntervalSince1970 == 5), "Failed to create DateInRegion from epoch time and fixed region / different date")
 		XCTAssert( (msecsFromEpochInRegion.region == regionBerlin), "Failed to create DateInRegion from epoch time and fixed region / different date")
 
+		// Init with fraction of seconds
+		let msecsLessThanSeconds = DateInRegion(milliseconds: 10)
+		XCTAssertEqual(round(msecsLessThanSeconds.date.timeIntervalSince1970 * 1000), 10)
+
 	}
 
 	func testDateInRegion_InitFromComponents() {
@@ -96,11 +104,11 @@ class TestDateInRegion: XCTestCase {
 		// Date must be expressed in Rome Time Zone which is UTC+1 for given date (1995/06/15)
 		// So we expect the same components of the date components and given hour -1 in absolute date (UTC)
 		let validDateTime = ((dateInRome.year == dComponents.year!) &&
-							(dateInRome.month == dComponents.month!) &&
-							(dateInRome.day == dComponents.day!) &&
-							(dateInRome.hour == dComponents.hour!) &&
-							(dateInRome.minute == dComponents.minute!) &&
-							(dateInRome.second == dComponents.second!))
+			(dateInRome.month == dComponents.month!) &&
+			(dateInRome.day == dComponents.day!) &&
+			(dateInRome.hour == dComponents.hour!) &&
+			(dateInRome.minute == dComponents.minute!) &&
+			(dateInRome.second == dComponents.second!))
 		XCTAssert(validDateTime, "Failed to create a valid DateInRegion in given region from components. One or more date components differs from original DateComponents")
 		XCTAssert( (dateInRome.date.in(region: regionUTC).hour == 14), "DateInRegion absolute date different from expected UTC value (14:30 UTC for given date)")
 	}
@@ -147,11 +155,11 @@ class TestDateInRegion: XCTestCase {
 	}
 
 	func testDateInRegion_Hash() {
-//		let regionParis = Region(calendar: Calendars.gregorian, zone: Zones.europeParis, locale: Locales.frenchFrance)
-//		let aDayInParis = DateInRegion(year: 2018, month: 5, day: 1, region: regionParis)
-//		let sameDayInParis = DateInRegion(year: aDayInParis.year, month: aDayInParis.month, day: aDayInParis.day, region: regionParis)
-//
-//		XCTAssert( (aDayInParis.hashValue != sameDayInParis.hashValue), "Failed to extract hash value from different date with same values")
+		//		let regionParis = Region(calendar: Calendars.gregorian, zone: Zones.europeParis, locale: Locales.frenchFrance)
+		//		let aDayInParis = DateInRegion(year: 2018, month: 5, day: 1, region: regionParis)
+		//		let sameDayInParis = DateInRegion(year: aDayInParis.year, month: aDayInParis.month, day: aDayInParis.day, region: regionParis)
+		//
+		//		XCTAssert( (aDayInParis.hashValue != sameDayInParis.hashValue), "Failed to extract hash value from different date with same values")
 	}
 
 	func testDateInRegion_InitComponentsCallback() {
@@ -376,11 +384,13 @@ public struct ExpectedDateComponents {
 		configure?(&self)
 	}
 
-	func validate(_ date: DateInRegion) -> String? {
+	func validate(_ date: DateInRegion, _ origin: String) -> String? {
 		if let year = self.year, year != date.year { return "year" }
 		if let day = self.day, day != date.day { return "day" }
 		if let month = self.month, month != date.month { return "month" }
-		if let minute = self.minute, minute != date.minute { return "minute" }
+		if let minute = self.minute, minute != date.minute {
+			return "minute exp='\(self.minute!)' val='\(date.minute)' date='\(date)' origin='\(origin)'"
+		}
 		if let second = self.second, second != date.second { return "second" }
 		if let weekOfMonth = self.weekOfMonth, weekOfMonth != date.weekOfMonth { return "weekOfMonth" }
 		if let dayOfYear = self.dayOfYear, dayOfYear != date.dayOfYear { return "dayOfYear" }
@@ -429,14 +439,14 @@ func XCTValidateParse(string: String, format: String?, region: Region, expec: Ex
 		XCTFail("Failed to parse date '\(string)' with format: '\(format ?? "<AUTO>")'")
 		return
 	}
-	if let errors = expec.validate(date) {
+	if let errors = expec.validate(date, string) {
 		XCTFail("Failed to validate components of parsed date string '\(string)' with format: '\(format ?? "<AUTO>")'. One or more components differ from expected: \(errors)")
 		return
 	}
 }
 
 func XCTValidateDateComponents(date: DateInRegion, expec: ExpectedDateComponents) {
-	if let errors = expec.validate(date) {
+	if let errors = expec.validate(date, "") {
 		XCTFail("Failed to validate components of date '\(date.description)'. One or more components differ from expected: \(errors)")
 		return
 	}

@@ -1,9 +1,13 @@
 //
-//  TestDateInRegion+Create.swift
 //  SwiftDate
+//  Parse, validate, manipulate, and display dates, time and timezones in Swift
 //
-//  Created by Daniele Margutti on 17/06/2018.
-//  Copyright © 2018 SwiftDate. All rights reserved.
+//  Created by Daniele Margutti
+//   - Web: https://www.danielemargutti.com
+//   - Twitter: https://twitter.com/danielemargutti
+//   - Mail: hello@danielemargutti.com
+//
+//  Copyright © 2019 Daniele Margutti. Licensed under MIT License.
 //
 
 import SwiftDate
@@ -11,7 +15,7 @@ import XCTest
 
 public func randomNumber<T: SignedInteger>(inRange range: ClosedRange<T> = 1...6) -> T {
 	let length = Int64(range.upperBound - range.lowerBound + 1)
-	let value = Int64(arc4random()) % length + Int64(range.lowerBound)
+	let value = Int64.random(in: 0..<Int64.max) % length + Int64(range.lowerBound)
 	return T(value)
 }
 
@@ -55,14 +59,14 @@ class TestDateInRegion_Create: XCTestCase {
 					}
 					if let range = range {
 						let value = randomNumber(inRange: range)
-						self.components[componentToAlter] = value
+						components[componentToAlter] = value
 					}
 				}
 			}
 
 			func verify(date: DateInRegion) {
-				self.components.keys.forEach {
-					if let value = date.dateComponents.value(for: $0), let expected = self.components[$0] as? Int {
+				components.keys.forEach {
+					if let value = date.dateComponents.value(for: $0), let expected = components[$0] as? Int {
 						if value != expected {
 							XCTFail("Failed to set value of component \($0). Got \(value), expected \(expected)")
 							return
@@ -107,7 +111,7 @@ class TestDateInRegion_Create: XCTestCase {
 
 	func testDateInRegion_RandomDatesBackToDays() {
 		for _ in 0..<50 {
-			let daysBack = Int(arc4random_uniform(365) + 1)
+			let daysBack = (Int.random(in: 0..<365) + 1)
 			let randomDate = DateInRegion.randomDate(withinDaysBeforeToday: daysBack)
 			guard randomDate.getInterval(toDate: DateInRegion(), component: .day) <= daysBack else {
 				XCTFail("Failed to generate a random back date back to max \(daysBack) days")
@@ -116,7 +120,7 @@ class TestDateInRegion_Create: XCTestCase {
 		}
 	}
 
-	func testDateInRegion_EnumareDates() {
+	func testDateInRegion_EnumerateDates() {
 		let regionRome = Region(calendar: Calendars.gregorian, zone: Zones.europeRome, locale: Locales.italian)
 
 		// TEST DATE #1
@@ -262,5 +266,39 @@ class TestDateInRegion_Create: XCTestCase {
 			}
 		}
 		return true
+	}
+
+	func testDateInRegion_DateForWeekdays() {
+		func validateArrayOfISODates(_ found: [String], _ expected: [String]) {
+			guard found.count == expected.count else {
+				XCTFail("Failed to validate array of dates. Different in number.")
+				return
+			}
+			for i in 0..<expected.count {
+				guard found[i] == expected[i] else {
+					XCTFail("Failed to validate item '\(i)'. Found '\(found[i])', expecting '\(expected[i])'")
+					return
+				}
+			}
+		}
+
+		let mondaysInJan2019 = DateInRegion.datesForWeekday(.monday, inMonth: 1, ofYear: 2019, region: Region.UTC).map { $0.toISO() }
+		validateArrayOfISODates(mondaysInJan2019, [
+			"2019-01-07T00:00:00Z",
+			"2019-01-14T00:00:00Z",
+			"2019-01-21T00:00:00Z",
+			"2019-01-28T00:00:00Z"
+		])
+
+		let fromDate = DateInRegion(year: 2019, month: 5, day: 27, hour: 0, minute: 0)
+		let toDate = DateInRegion(year: 2019, month: 6, day: 8, hour: 0, minute: 0)
+
+		let fridaysInJunePartial = DateInRegion.datesForWeekday(.friday, from: fromDate, to: toDate, region: Region.UTC).map {
+			$0.toISO()
+		}
+		validateArrayOfISODates(fridaysInJunePartial, [
+			"2019-05-31T00:00:00Z",
+			"2019-06-07T00:00:00Z"
+		])
 	}
 }

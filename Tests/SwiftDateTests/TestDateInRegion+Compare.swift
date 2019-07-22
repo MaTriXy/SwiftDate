@@ -1,9 +1,13 @@
 //
-//  TestDateInRegion+Compare.swift
 //  SwiftDate
+//  Parse, validate, manipulate, and display dates, time and timezones in Swift
 //
-//  Created by Daniele Margutti on 17/06/2018.
-//  Copyright © 2018 SwiftDate. All rights reserved.
+//  Created by Daniele Margutti
+//   - Web: https://www.danielemargutti.com
+//   - Twitter: https://twitter.com/danielemargutti
+//   - Mail: hello@danielemargutti.com
+//
+//  Copyright © 2019 Daniele Margutti. Licensed under MIT License.
 //
 
 import SwiftDate
@@ -84,6 +88,10 @@ class TestDateInRegion_Compare: XCTestCase {
 		let dateC1 = DateInRegion("2018-07-01 00:00:00", format: dateFormat, region: regionRome)!
 		XCTAssert( dateA1.compare(.isSameMonth(dateB1)), "Failed to evaluate isSameMonth")
 		XCTAssert( dateB1.compare(.isSameMonth(dateC1)) == false, "Failed to evaluate isSameMonth == false")
+
+		// prevWeek/nextWeek
+		XCTAssert( dateA1.dateAt(.prevWeek).toISO() == "2018-06-11T00:00:00+02:00", "Failed to evaluate prevWeek")
+		XCTAssert( dateA1.dateAt(.nextWeek).toISO() == "2018-06-25T00:00:00+02:00", "Failed to evaluate prevWeek")
 
 		// isThisYear
 		XCTAssert( DateInRegion().compare(.isThisYear), "Failed to evaluate isThisYear")
@@ -276,16 +284,13 @@ class TestDateInRegion_Compare: XCTestCase {
 		XCTAssert( (date1 <= date3), "Failed to math compare two dates")
 	}
 
-//	func testDateInRegion_CompareWithGranularity() {
-//		let rome = Region(calendar: Calendars.gregorian, zone: Zones.europeRome, locale: Locales.italian)
-//		let format = "yyyy-MM-dd HH:mm:ss"
-//		let date1 = DateInRegion("2018-01-01 00:10:00", format: format, region: rome)!
-//		let date2 = DateInRegion("2017-01-05 21:30:00", format: format, region: rome)!
-//
-//		let res1 = date1.compare(toDate: date2, granularity: .year)
-//		let res2 = date1.compare(toDate: date2, granularity: .day)
-//		let res3 = date1.compare(toDate: date2, granularity: .weekOfMonth)
-//		print("")
-//	}
+	func testDateInRange_GranuralityTest() {
+		let startTime = Date(timeIntervalSince1970: 1_538_344_800.0) // 2018-09-30 22:00:00 +0000
+		let endTime = Date(timeIntervalSince1970: 1_540_940_400.0 + (60 * 60 * 3)) // 2018-10-31 02:00:00 +0000
+		let checkStart = Date(timeIntervalSince1970: 1_540_976_400.0) // 2018-10-31 09:00:00 +0000
+
+		let isInside = checkStart.isInRange(date: startTime, and: endTime, orEqual: true, granularity: .day) // should return false even if its true
+		XCTAssert( (isInside == true), "Failed to compare date with granularity")
+	}
 
 }

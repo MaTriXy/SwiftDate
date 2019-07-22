@@ -1,16 +1,20 @@
 //
-//  Region.swift
 //  SwiftDate
+//  Parse, validate, manipulate, and display dates, time and timezones in Swift
 //
-//  Created by Daniele Margutti on 06/06/2018.
-//  Copyright © 2018 SwiftDate. All rights reserved.
+//  Created by Daniele Margutti
+//   - Web: https://www.danielemargutti.com
+//   - Twitter: https://twitter.com/danielemargutti
+//   - Mail: hello@danielemargutti.com
+//
+//  Copyright © 2019 Daniele Margutti. Licensed under MIT License.
 //
 
 import Foundation
 
 /// Region define a context both for `Date` and `DateInRegion`.
 /// Each `Date` is assigned to the currently set `SwiftDate.default
-public struct Region: Codable, Equatable, Hashable, CustomStringConvertible {
+public struct Region: Decodable, Encodable, Equatable, Hashable, CustomStringConvertible {
 
 	// MARK: - Properties
 
@@ -28,8 +32,8 @@ public struct Region: Codable, Equatable, Hashable, CustomStringConvertible {
 		return "{calendar='\(calendar.identifier)', timezone='\(timeZone.identifier)', locale='\(locale.identifier)'}"
 	}
 
-	public var hashValue: Int {
-		return self.calendar.hashValue
+	public func hash(into hasher: inout Hasher) {
+		hasher.combine(calendar)
 	}
 
 	// MARK: Initialization
@@ -58,7 +62,7 @@ public struct Region: Codable, Equatable, Hashable, CustomStringConvertible {
 		let tz = (components.timeZone ?? Zones.current.toTimezone())
 		let cal = (components.calendar ?? Calendars.gregorian.toCalendar())
 		let loc = (cal.locale ?? Locales.current.toLocale())
-		self.init(calendar: cal, zone: tz, locale: loc)
+        self.init(calendar: cal, zone: tz, locale: loc)
 	}
 
 	public static var UTC: Region {
@@ -131,7 +135,7 @@ public struct Region: Codable, Equatable, Hashable, CustomStringConvertible {
 		let calId = Calendar.Identifier( try values.decode(String.self, forKey: .calendar))
 		let tz = (TimeZone(identifier: try values.decode(String.self, forKey: .timezone)) ?? SwiftDate.defaultRegion.timeZone)
 		let lc = Locale(identifier: try values.decode(String.self, forKey: .locale))
-		self.calendar = Calendar.newCalendar(calId, configure: {
+		calendar = Calendar.newCalendar(calId, configure: {
 			$0.timeZone = tz
 			$0.locale = lc
 		})

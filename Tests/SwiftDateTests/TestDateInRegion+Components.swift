@@ -1,9 +1,13 @@
 //
-//  TestDateInRegion+Components.swift
 //  SwiftDate
+//  Parse, validate, manipulate, and display dates, time and timezones in Swift
 //
-//  Created by Daniele Margutti on 19/06/2018.
-//  Copyright © 2018 SwiftDate. All rights reserved.
+//  Created by Daniele Margutti
+//   - Web: https://www.danielemargutti.com
+//   - Twitter: https://twitter.com/danielemargutti
+//   - Mail: hello@danielemargutti.com
+//
+//  Copyright © 2019 Daniele Margutti. Licensed under MIT License.
 //
 
 import SwiftDate
@@ -39,7 +43,7 @@ class TestDateInRegion_Components: XCTestCase {
 			$0.firstDayOfWeek = 5
 			$0.lastDayOfWeek = 11
 			$0.yearForWeekOfYear = 2018
-			$0.quarter = 0
+			$0.quarter = 1
 		})
 
 		// TEST #1: Date In French
@@ -57,6 +61,7 @@ class TestDateInRegion_Components: XCTestCase {
 		XCTAssert( (dateB.calendar.identifier == regionParis.calendar.identifier), "Failed to assign correct region's calendar to date")
 		XCTAssert( (dateB.quarterName(.default) == "1er trimestre"), "Failed to get quarterName in default")
 		XCTAssert( (dateB.quarterName(.short) == "T1"), "Failed to get quarterName in short")
+		XCTAssert( (dateB.quarterName(.default, locale: Locales.italian) == "1º trimestre"), "Failed to get quarterName with overwrite of locale")
 	}
 
 	func testDateInRegion_isLeapMonth() {
@@ -69,6 +74,12 @@ class TestDateInRegion_Components: XCTestCase {
 		XCTAssert( dateA.isLeapMonth == false, "Failed to evaluate is date isLeapMonth == false")
 		XCTAssert( dateC.isLeapMonth == false, "Failed to evaluate is date isLeapMonth == false")
 		XCTAssert( dateB.isLeapMonth, "Failed to evaluate is date isLeapMonth")
+	}
+
+	func testDateInRegion_dateBySet() {
+		let originalDate = "2018-10-10T12:02:16.024".toISODate()
+		let newDate = originalDate?.dateBySet(hour: nil, min: nil, secs: nil, ms: 7)
+		XCTAssert( newDate?.toISO([.withInternetDateTimeExtended]) == "2018-10-10T12:02:16.007Z", "Failed to set milliseconds")
 	}
 
 	func testDateInRegion_isLeapYear() {
@@ -139,6 +150,57 @@ class TestDateInRegion_Components: XCTestCase {
 
 	}
 
+	@available(iOS 9.0, macOS 10.11, *)
+	func test_ordinalDay() {
+		let newYork = Region(calendar: Calendars.gregorian, zone: Zones.americaNewYork, locale: Locales.englishUnitedStates)
+
+		let localDate = DateInRegion(components: {
+			$0.year = 2002
+			$0.month = 3
+			$0.day = 1
+			$0.hour = 5
+			$0.minute = 30
+		}, region: newYork)!
+		XCTAssert(localDate.ordinalDay == "1st", "Failed to get the correct value of the ordinalDay for a date")
+
+		let localDate2 = DateInRegion(components: {
+			$0.year = 2002
+			$0.month = 3
+			$0.day = 2
+			$0.hour = 5
+			$0.minute = 30
+		}, region: newYork)!
+		XCTAssert(localDate2.ordinalDay == "2nd", "Failed to get the correct value of the ordinalDay for a date")
+
+		let localDate3 = DateInRegion(components: {
+			$0.year = 2002
+			$0.month = 3
+			$0.day = 3
+			$0.hour = 5
+			$0.minute = 30
+		}, region: newYork)!
+		XCTAssert(localDate3.ordinalDay == "3rd", "Failed to get the correct value of the ordinalDay for a date")
+
+		let localDate4 = DateInRegion(components: {
+			$0.year = 2002
+			$0.month = 3
+			$0.day = 4
+			$0.hour = 5
+			$0.minute = 30
+		}, region: newYork)!
+		XCTAssert(localDate4.ordinalDay == "4th", "Failed to get the correct value of the ordinalDay for a date")
+
+		let regionRome = Region(calendar: Calendars.gregorian, zone: Zones.europeRome, locale: Locales.italian)
+		let localDate5 = DateInRegion(components: {
+			$0.year = 2002
+			$0.month = 3
+			$0.day = 2
+			$0.hour = 5
+			$0.minute = 30
+		}, region: regionRome)!
+		XCTAssert(localDate5.ordinalDay == "2º", "Failed to get the correct value of the ordinalDay for a date")
+	}
+
 	func testDateInRegion_ISOFormatterAlt() {
 		let regionRome = Region(calendar: Calendars.gregorian, zone: Zones.europeRome, locale: Locales.italian)
 		let dateFormat = "yyyy-MM-dd HH:mm:ss"
@@ -184,4 +246,24 @@ class TestDateInRegion_Components: XCTestCase {
 		XCTAssert( dateC.timeIntervalSince(dateD) == -5, "Failed to evaluate is minutes interval")
 	}
 
+	func testQuarter() {
+		let regionLondon = Region(calendar: Calendars.gregorian, zone: Zones.europeLondon, locale: Locales.english)
+		let dateFormat = "yyyy-MM-dd HH:mm:ss"
+
+		let dateA = DateInRegion("2018-02-05 23:14:45", format: dateFormat, region: regionLondon)!
+		let dateB = DateInRegion("2018-09-05 23:14:45", format: dateFormat, region: regionLondon)!
+		let dateC = DateInRegion("2018-12-05 23:14:45", format: dateFormat, region: regionLondon)!
+
+		XCTAssert( dateA.quarter == 1, "Failed to evaluate quarter property")
+		XCTAssert( dateB.quarter == 3, "Failed to evaluate quarter property")
+		XCTAssert( dateC.quarter == 4, "Failed to evaluate quarter property")
+	}
+
+	func testAbsoluteDateISOFormatting() {
+		let now = DateInRegion()
+		let iso8601_string = now.toISO([.withInternetDateTime])
+		let absoluteDate = now.date
+		let absoluteDate_iso8601_string = absoluteDate.toISO([.withInternetDateTime])
+		XCTAssert( absoluteDate_iso8601_string == iso8601_string, "Failed respect the absolute ISO date")
+	}
 }

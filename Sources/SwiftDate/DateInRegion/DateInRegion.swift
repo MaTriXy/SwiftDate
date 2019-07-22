@@ -1,14 +1,18 @@
 //
-//  DateInRegion.swift
 //  SwiftDate
+//  Parse, validate, manipulate, and display dates, time and timezones in Swift
 //
-//  Created by Daniele Margutti on 06/06/2018.
-//  Copyright © 2018 SwiftDate. All rights reserved.
+//  Created by Daniele Margutti
+//   - Web: https://www.danielemargutti.com
+//   - Twitter: https://twitter.com/danielemargutti
+//   - Mail: hello@danielemargutti.com
+//
+//  Copyright © 2019 Daniele Margutti. Licensed under MIT License.
 //
 
 import Foundation
 
-public struct DateInRegion: DateRepresentable, Codable, CustomStringConvertible, Comparable, Hashable {
+public struct DateInRegion: DateRepresentable, Decodable, Encodable, CustomStringConvertible, Comparable, Hashable {
 
 	/// Absolute date represented. This date is not associated with any timezone or calendar
 	/// but represent the absolute number of seconds since Jan 1, 2001 at 00:00:00 UTC.
@@ -17,11 +21,6 @@ public struct DateInRegion: DateRepresentable, Codable, CustomStringConvertible,
 	/// Associated region which define where the date is represented into the world.
 	public let region: Region
 
-	/// Allows to generate an unique hash vaalue for an instance of `DateInRegion`
-	public var hashValue: Int {
-		return combineHashes([self.date.hashValue, self.region.hashValue])
-	}
-
 	/// Formatter used to transform this object in a string. By default is `nil` because SwiftDate
 	/// uses the thread shared formatter in order to avoid expensive init of the `DateFormatter` object.
 	/// However, if you need of a custom behaviour you can set a valid value.
@@ -29,14 +28,19 @@ public struct DateInRegion: DateRepresentable, Codable, CustomStringConvertible,
 
 	/// Extract date components by taking care of the region in which the date is expressed.
 	public var dateComponents: DateComponents {
-		return self.region.calendar.dateComponents(DateComponents.allComponentsSet, from: self.date)
+		return region.calendar.dateComponents(DateComponents.allComponentsSet, from: date)
 	}
 
 	/// Description of the date
 	public var description: String {
-		let absISODate = DateFormatter.sharedFormatter(forRegion: Region.UTC).string(from: self.date)
-		let representedDate = self.formatter(format: DateFormats.iso8601).string(from: self.date)
-		return "{abs_date='\(absISODate)', rep_date='\(representedDate)', region=\(self.region.description)"
+		let absISODate = DateFormatter.sharedFormatter(forRegion: Region.UTC).string(from: date)
+		let representedDate = formatter(format: DateFormats.iso8601).string(from: date)
+		return "{abs_date='\(absISODate)', rep_date='\(representedDate)', region=\(region.description)"
+	}
+
+	/// The interval between the date value and 00:00:00 UTC on 1 January 1970.
+	public var timeIntervalSince1970: TimeInterval {
+		return date.timeIntervalSince1970
 	}
 
 	/// Initialize with an absolute date and represent it into given geographic region.
@@ -103,7 +107,7 @@ public struct DateInRegion: DateRepresentable, Codable, CustomStringConvertible,
 	///   - interval: seconds since the Unix Epoch timestamp.
 	///   - region: region in which the date must be expressed, `nil` uses the default region at UTC timezone
 	public init(milliseconds interval: Int, region: Region = Region.UTC) {
-		self.date = Date(timeIntervalSince1970: TimeInterval(interval / 1000))
+		self.date = Date(timeIntervalSince1970: TimeInterval(interval) / 1000)
 		self.region = region
 	}
 

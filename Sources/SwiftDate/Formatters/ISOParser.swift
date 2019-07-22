@@ -1,9 +1,13 @@
 //
-//  ISOParser.swift
 //  SwiftDate
+//  Parse, validate, manipulate, and display dates, time and timezones in Swift
 //
-//  Created by Daniele Margutti on 06/06/2018.
-//  Copyright © 2018 SwiftDate. All rights reserved.
+//  Created by Daniele Margutti
+//   - Web: https://www.danielemargutti.com
+//   - Twitter: https://twitter.com/danielemargutti
+//   - Mail: hello@danielemargutti.com
+//
+//  Copyright © 2019 Daniele Margutti. Licensed under MIT License.
 //
 
 // swiftlint:disable file_length
@@ -76,13 +80,8 @@ public class ISOParser: StringToDateTransformable {
 		/// Strict parsing. By default is `false`.
 		var strict: Bool = false
 
-		/// Calendar used to generate the date.
-		/// By default is the gregorian calendar.
-		internal var calendar = Calendars.gregorian.toCalendar()
-
-		public init(strict: Bool = false, calendar: Calendar? = nil) {
+		public init(strict: Bool = false) {
 			self.strict = strict
-			self.calendar = calendar ?? Calendar.current
 		}
 	}
 
@@ -145,6 +144,9 @@ public class ISOParser: StringToDateTransformable {
 		var timezone: TimeZone?
 	}
 
+	/// Source generation calendar.
+	private var srcCalendar = Calendars.gregorian.toCalendar()
+
 	/// Source raw parsed values
 	private var date = ParsedDate()
 
@@ -183,8 +185,8 @@ public class ISOParser: StringToDateTransformable {
 	/// Date adjusted at parsed timezone
 	private var dateInTimezone: Date? {
 		get {
-			self.options.calendar.timeZone = date.timezone ?? TimeZone(identifier: "UTC")!
-			return self.options.calendar.date(from: self.date_components!)
+			srcCalendar.timeZone = date.timezone ?? TimeZone(identifier: "UTC")!
+			return srcCalendar.date(from: date_components!)
 		}
 	}
 
@@ -202,21 +204,21 @@ public class ISOParser: StringToDateTransformable {
 		guard src_trimmed.count > 0 else {
 			return nil
 		}
-		self.string = src_trimmed.unicodeScalars
-		self.length = src_trimmed.count
-		self.cIdx = string.startIndex
-		self.eIdx = string.endIndex
+		string = src_trimmed.unicodeScalars
+		length = src_trimmed.count
+		cIdx = string.startIndex
+		eIdx = string.endIndex
 		self.options = (options ?? ISOParser.Options())
-		self.now_cmps = self.options.calendar.dateComponents([.year, .month, .day], from: Date())
+		self.now_cmps = srcCalendar.dateComponents([.year, .month, .day], from: Date())
 
-		var idx = self.cIdx
-		while idx < self.eIdx {
+		var idx = cIdx
+		while idx < eIdx {
 			if string[idx] == "-" { hyphens += 1 } else { break }
 			idx = string.index(after: idx)
 		}
 
 		do {
-			try self.parse()
+			try parse()
 		} catch {
 			return nil
 		}
@@ -236,7 +238,7 @@ public class ISOParser: StringToDateTransformable {
 			// There is no date here, only a time.
 			// Set the date to now; then we'll parse the time.
 			next()
-			guard current().isDigit else {
+			guard current()?.isDigit ?? false else {
 				throw ISO8601ParserError.invalid
 			}
 
@@ -254,6 +256,7 @@ public class ISOParser: StringToDateTransformable {
 				case 8:		try parse_digits_8(num_digits, &segment)
 				case 6:		try parse_digits_6(num_digits, &segment)
 				case 4:		try parse_digits_4(num_digits, &segment)
+				case 5:		try parse_digits_5(num_digits, &segment)
 				case 1:		try parse_digits_1(num_digits, &segment)
 				case 2:		try parse_digits_2(num_digits, &segment)
 				case 7:		try parse_digits_7(num_digits, &segment) //YYYY DDD (ordinal date)
@@ -268,14 +271,14 @@ public class ISOParser: StringToDateTransformable {
 		}
 
 		var hasTime = false
-		if current().isSpace || current() == "T" {
+		if current()?.isSpace ?? false || current() == "T" {
 			hasTime = true
 			next()
 		}
 
 		// PARSE TIME
 
-		if current().isDigit == true {
+		if current()?.isDigit ?? false == true {
 			let time_sep = options.time_separator
 			let hasTimeSeparator = string.contains(time_sep)
 
@@ -327,53 +330,55 @@ public class ISOParser: StringToDateTransformable {
 			}
 
 			if options.strict == false {
-				if current().isSpace == true {
+				if cIdx != eIdx && current()?.isSpace ?? false == true {
 					next()
 				}
 			}
 
-			switch current() {
-			case "Z":
-				date.timezone = TimeZone(abbreviation: "UTC")
+			if cIdx != eIdx {
+				switch current() {
+				case "Z":
+					date.timezone = TimeZone(abbreviation: "UTC")
 
-			case "+", "-":
-				let is_negative = current() == "-"
-				next()
-				if current().isDigit == true {
-					//Read hour offset.
-					date.tz_hour = try read_int(2).value
-					if is_negative == true { date.tz_hour = -date.tz_hour }
+				case "+", "-":
+					let is_negative = current() == "-"
+					next()
+					if current()?.isDigit ?? false == true {
+						//Read hour offset.
+						date.tz_hour = try read_int(2).value
+						if is_negative == true { date.tz_hour = -date.tz_hour }
 
-					// Optional separator
-					if current() == time_sep {
-						next()
+						// Optional separator
+						if current() == time_sep {
+							next()
+						}
+
+						if current()?.isDigit ?? false {
+							// Read minute offset
+							date.tz_minute = try read_int(2).value
+							if is_negative == true { date.tz_minute = -date.tz_minute }
+						}
+
+						let timezone_offset = (date.tz_hour * 3600) + (date.tz_minute * 60)
+						date.timezone = TimeZone(secondsFromGMT: timezone_offset)
 					}
-
-					if current().isDigit {
-						// Read minute offset
-						date.tz_minute = try read_int(2).value
-						if is_negative == true { date.tz_minute = -date.tz_minute }
-					}
-
-					let timezone_offset = (date.tz_hour * 3600) + (date.tz_minute * 60)
-					date.timezone = TimeZone(secondsFromGMT: timezone_offset)
+				default:
+					break
 				}
-			default:
-				break
 			}
 		}
 
-		self.date_components = DateComponents()
-		self.date_components!.year = date.year
-		self.date_components!.day = date.day
-		self.date_components!.hour = date.hour
-		self.date_components!.minute = Int(date.minute)
-		self.date_components!.second = Int(date.seconds)
-		self.date_components!.nanosecond = Int(date.nanoseconds)
+		date_components = DateComponents()
+		date_components!.year = date.year
+		date_components!.day = date.day
+		date_components!.hour = date.hour
+		date_components!.minute = Int(date.minute)
+		date_components!.second = Int(date.seconds)
+		date_components!.nanosecond = Int(date.nanoseconds)
 
 		switch date.type {
 		case .monthAndDate:
-			self.date_components!.month = date.month_or_week
+			date_components!.month = date.month_or_week
 		case .week:
 			//Adapted from <http://personal.ecu.edu/mccartyr/ISOwdALG.txt>.
 			//This works by converting the week date into an ordinal date, then letting the next case handle it.
@@ -388,25 +393,25 @@ public class ISOParser: StringToDateTransformable {
 			day += (date.day - 1) + (7 * (date.month_or_week - 2))
 
 			if let weekday = date.weekday {
-				//self.date_components!.weekday = weekday
-				self.date_components!.day = day + weekday
+				//date_components!.weekday = weekday
+				date_components!.day = day + weekday
 			} else {
-				self.date_components!.day = day
+				date_components!.day = day
 			}
 		case .dateOnly: //An "ordinal date".
 			break
 
 		}
 
-		//self.cfg.calendar.timeZone = date.timezone ?? TimeZone(identifier: "UTC")!
-		//self.parsedDate = self.cfg.calendar.date(from: self.date_components!)
+		//cfg.calendar.timeZone = date.timezone ?? TimeZone(identifier: "UTC")!
+		//parsedDate = cfg.calendar.date(from: date_components!)
 
 		let tz = date.timezone ?? TimeZone(identifier: "UTC")!
-		self.parsedTimeZone = tz
-		self.options.calendar.timeZone = tz
-		self.parsedDate = self.options.calendar.date(from: self.date_components!)
+		parsedTimeZone = tz
+		srcCalendar.timeZone = tz
+		parsedDate = srcCalendar.date(from: date_components!)
 
-		return (self.parsedDate, self.parsedTimeZone)
+		return (parsedDate, parsedTimeZone)
 	}
 
 	private func parse_digits_3(_ num_digits: Int, _ segment: inout Int) throws {
@@ -506,7 +511,7 @@ public class ISOParser: StringToDateTransformable {
 				next()
 				if current() == "W" {
 					try parseWeekAndDay()
-				} else if current().isDigit == false {
+				} else if current()?.isDigit ?? false == false {
 					try centuryOnly(&segment)
 				} else {
 					// Get month and/or date.
@@ -523,7 +528,7 @@ public class ISOParser: StringToDateTransformable {
 						date.month_or_week = v_seg
 						if current() == "-" {
 							next()
-							if current().isDigit == true {
+							if current()?.isDigit ?? false == true {
 								date.day = try read_int(2).value
 							} else {
 								date.day = 1
@@ -576,6 +581,17 @@ public class ISOParser: StringToDateTransformable {
 		}
 	}
 
+	private func parse_digits_5(_ num_digits: Int, _ segment: inout Int) throws {
+		guard hyphens == 0 else { throw ISO8601ParserError.invalid }
+		// YYDDD
+		date.year = now_cmps.year!
+		date.year -= (date.year % 100)
+		date.year += segment / 1000
+
+		date.day = segment % 1000
+		date.type = .dateOnly
+	}
+
 	private func parse_digits_4(_ num_digits: Int, _ segment: inout Int) throws {
 
 		func parse_hyphens_0(_ num_digits: Int, _ segment: inout Int) throws {
@@ -584,7 +600,7 @@ public class ISOParser: StringToDateTransformable {
 				next()
 			}
 
-			if current().isDigit == false {
+			if current()?.isDigit ?? false == false {
 				if current() == "W" {
 					try parseWeekAndDay()
 				} else {
@@ -603,7 +619,7 @@ public class ISOParser: StringToDateTransformable {
 					if current() == "-" {
 						next()
 					}
-					if current().isDigit == false {
+					if current()?.isDigit ?? false == false {
 						date.day = 1
 					} else {
 						date.day = try read_int().value
@@ -627,7 +643,7 @@ public class ISOParser: StringToDateTransformable {
 			if current() == "-" {
 				next()
 			}
-			if current().isDigit == false {
+			if current()?.isDigit ?? false == false {
 				date.day = 1
 			} else {
 				date.day = try read_int().value
@@ -651,7 +667,9 @@ public class ISOParser: StringToDateTransformable {
 
 	private func parse_digits_6(_ num_digits: Int, _ segment: inout Int) throws {
 		// YYMMDD (implicit century)
-		guard hyphens == 0 else { throw ISO8601ParserError.invalid }
+		guard hyphens == 0 else {
+			throw ISO8601ParserError.invalid
+		}
 
 		date.day = segment % 100
 		segment /= 100
@@ -714,7 +732,7 @@ public class ISOParser: StringToDateTransformable {
 
 	private func parseWeekAndDay() throws {
 		next()
-		if current().isDigit == false {
+		if current()?.isDigit ?? false == false {
 			//Not really a week-based date; just a year followed by '-W'.
 			guard options.strict == false else {
 				throw ISO8601ParserError.invalid
@@ -728,7 +746,7 @@ public class ISOParser: StringToDateTransformable {
 	}
 
 	private func parseDayAfterWeek() throws {
-		date.day = current().isDigit == true ? try read_int(2).value : 1
+		date.day = current()?.isDigit ?? false == true ? try read_int(2).value : 1
 		date.type = .week
 	}
 
@@ -768,7 +786,8 @@ public class ISOParser: StringToDateTransformable {
 	/// - Parameter next: if `true` return the current char and move to the next position
 	/// - Returns: the char sat the current position of the scanner
 	@discardableResult
-	public func current(_ next: Bool = false) -> ISOChar {
+	public func current(_ next: Bool = false) -> ISOChar? {
+		guard cIdx != eIdx else { return nil }
 		let current = string[cIdx]
 		if next == true { cIdx = string.index(after: cIdx) }
 		return current
@@ -898,15 +917,15 @@ public class ISOParser: StringToDateTransformable {
 		return (parser.parsedDate, parser.parsedTimeZone)
 	}
 
-	public static func parse(_ string: String, region: Region, options: Any?) -> DateInRegion? {
+	public static func parse(_ string: String, region: Region?, options: Any?) -> DateInRegion? {
 		let formatOptions = options as? ISOParser.Options
 		guard let parser = ISOParser(string, options: formatOptions),
 			let date = parser.parsedDate else {
 			return nil
 		}
-		let parsedRegion = Region(calendar: region.calendar,
-								  zone: (parser.parsedTimeZone ?? region.timeZone),
-								  locale: region.locale)
+		let parsedRegion = Region(calendar: region?.calendar ?? Region.ISO.calendar,
+								  zone: (region?.timeZone ?? parser.parsedTimeZone ?? Region.ISO.timeZone),
+								  locale: region?.locale ?? Region.ISO.locale)
 		return DateInRegion(date, region: parsedRegion)
 	}
 

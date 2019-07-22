@@ -1,9 +1,13 @@
 //
-//  TestFormatters.swift
 //  SwiftDate
+//  Parse, validate, manipulate, and display dates, time and timezones in Swift
 //
-//  Created by Daniele Margutti on 19/06/2018.
-//  Copyright © 2018 SwiftDate. All rights reserved.
+//  Created by Daniele Margutti
+//   - Web: https://www.danielemargutti.com
+//   - Twitter: https://twitter.com/danielemargutti
+//   - Mail: hello@danielemargutti.com
+//
+//  Copyright © 2019 Daniele Margutti. Licensed under MIT License.
 //
 
 import SwiftDate
@@ -356,35 +360,35 @@ class TestFormatters: XCTestCase {
 
 	public func testDotNETFormatter() {
 		SwiftDate.defaultRegion = Region(calendar: Calendars.gregorian, zone: Zones.europeRome, locale: Locales.english)
-		self.datesList().forEach {
+		datesList().forEach {
 			XCTTestFormatterParser(dateStr: $0.key, expected: $0.value["dotnet"]!, type: "dotnet", region: SwiftDate.defaultRegion)
 		}
 	}
 
 	public func testRSSFormatter() {
 		SwiftDate.defaultRegion = Region(calendar: Calendars.gregorian, zone: Zones.europeRome, locale: Locales.english)
-		self.datesList().forEach {
+		datesList().forEach {
 			XCTTestFormatterParser(dateStr: $0.key, expected: $0.value["rss"]!, type: "rss", region: SwiftDate.defaultRegion)
 		}
 	}
 
 	public func testRSSAltFormatter() {
 		SwiftDate.defaultRegion = Region(calendar: Calendars.gregorian, zone: Zones.europeRome, locale: Locales.english)
-		self.datesList().forEach {
+		datesList().forEach {
 			XCTTestFormatterParser(dateStr: $0.key, expected: $0.value["rss_alt"]!, type: "rss_alt", region: SwiftDate.defaultRegion)
 		}
 	}
 
 	public func testSQLFormatter() {
 		SwiftDate.defaultRegion = Region(calendar: Calendars.gregorian, zone: Zones.europeRome, locale: Locales.english)
-		self.datesList().forEach {
+		datesList().forEach {
 			XCTTestFormatterParser(dateStr: $0.key, expected: $0.value["sql"]!, type: "sql", region: SwiftDate.defaultRegion)
 		}
 	}
 
 	public func testISOFormatter() {
 		SwiftDate.defaultRegion = Region(calendar: Calendars.gregorian, zone: Zones.europeRome, locale: Locales.english)
-		self.datesList().forEach {
+		datesList().forEach {
 			XCTTestFormatterParser(dateStr: $0.key, expected: $0.value["iso"]!, type: "iso", region: SwiftDate.defaultRegion)
 		}
 	}
@@ -434,8 +438,8 @@ class TestFormatters: XCTestCase {
 	}
 
 	func testTZInISOParser() {
-		let gmtTimezone = "2017-08-05T16:04:03".toISODate(region: Region.ISO)!
-		let timezoneInDate = "2017-08-05T16:04:03+02:00".toISODate(region: Region.ISO)!
+		let gmtTimezone = "2017-08-05T16:04:03".toISODate(region: Region.ISO)! // force timezone
+		let timezoneInDate = "2017-08-05T16:04:03+02:00".toISODate()! // parse from iso
 		XCTAssert(gmtTimezone.region.timeZone.secondsFromGMT() == 0, "ISO Date does not contains timezone (is gmt)")
 		XCTAssert(timezoneInDate.region.timeZone.secondsFromGMT() == 7200, "ISO Date does not contains timezone (is gmt)")
 	}
@@ -451,9 +455,15 @@ class TestFormatters: XCTestCase {
 
 	func testTimeInterval_Clock() {
 		let value = (2.hours + 5.minutes).timeInterval.toClock()
-		XCTAssert(value == "2:05:00", "Failed to format clock")
-		let value2 = (4.minutes + 50.minutes).timeInterval.toClock(zero: DateComponentsFormatter.ZeroFormattingBehavior.dropAll)
+		XCTAssert(value == "02:05:00", "Failed to format clock")
+		#if os(Linux)
+		let zeroBehavior = DateComponentsFormatter.ZeroFormattingBehavior(rawValue: 14)
+		let value2 = (4.minutes + 50.minutes).timeInterval.toClock(zero: zeroBehavior)
 		XCTAssert(value2 == "54:00", "Failed to format clock")
+		#else
+		let value2 = (4.minutes + 50.minutes).timeInterval.toClock(zero: DateComponentsFormatter.ZeroFormattingBehavior.dropAll)
+		XCTAssert(value2 == "54", "Failed to format clock")
+		#endif
 	}
 
 	func testFormatterCustom() {
@@ -465,20 +475,26 @@ class TestFormatters: XCTestCase {
 		XCTAssert( regionFormat == "gen 15 2015", "Failed to format with standard locale")
 	}
 
-//	func testTimeInterval_FormatterUnits() {
-//		let values = (36.hours + 2.days + 1.weeks).timeInterval.toUnits([.day, .hour])
-//		XCTAssert(values[.hour] == 12 && values[.day] == 10, "Failed to extract day components")
-//	}
+	func testTimeInterval_FormatterUnits() {
+		// for TimeInterval
+		let values = (36.hours + 2.days + 1.weeks).timeInterval.toUnits([.day, .hour])
+		XCTAssert(values[.hour] == 12 && values[.day] == 10, "Failed to extract day components")
+
+		let singleValue = (1.days).timeInterval.toUnit(.minute)
+		XCTAssert(singleValue == 1440, "Failed to extract single date component")
+	}
 
 	func testTimeInterval_Formatter() {
-		let value1 = (2.hours + 5.minutes + 32.seconds).timeInterval.toString {
+		let value1 = (2.hours + 5.minutes + 32.seconds).timeInterval.toString(options: {
 			$0.unitsStyle = .full
 			$0.collapsesLargestUnit = false
 			$0.allowsFractionalUnits = true
-		}
-		let value2 = (5.hours + 2.days).timeInterval.toString {
+			$0.locale = Locales.english
+		})
+		let value2 = (5.hours + 2.days).timeInterval.toString(options: {
 			$0.unitsStyle = .abbreviated
-		}
+			$0.locale = Locales.english
+		})
 		XCTAssert(value1 == "2 hours, 5 minutes, 32 seconds", "Failed to format interval to string")
 		XCTAssert(value2 == "2d 5h", "Failed to format interval to string")
 	}
@@ -500,10 +516,60 @@ class TestFormatters: XCTestCase {
 
 		let justNow3 = DateInRegion() - 1.minutes
 		let r5 = justNow3.toRelative(style: RelativeFormatter.twitterStyle(), locale: Locales.english)
-		XCTAssert(r5 == "1m", "Failed to use colloquial formatter")
+		XCTAssert(r5 == "1 min. ago", "Failed to use colloquial formatter")
 
 		let justNow4 = DateInRegion() - 51.seconds
 		let r6 = justNow4.toRelative(style: RelativeFormatter.twitterStyle(), locale: Locales.english)
-		XCTAssert(r6 == "1m", "Failed to use colloquial formatter")
+		XCTAssert(r6 == "1 min. ago", "Failed to use colloquial formatter")
+	}
+
+	func testISOParser() {
+
+		func testISO(_ src: String, _ exp: String) {
+			let output = src.toISODate()?.toISO()
+			XCTAssert(output == exp, "Failed to parse ISO '\(src)'")
+		}
+
+		testISO("20060506", "2006-05-06T00:00:00Z") // YYYYMMDD
+		testISO("2001-12-14", "2001-12-14T00:00:00Z") // YYYY-MM-DD
+		testISO("2001-06", "2001-06-01T00:00:00Z") // YYYY-MM
+		testISO("2015", "2015-01-01T00:00:00Z") // YYYY
+		//testISO("15", "1518-01-01T00:00:00Z") // YY
+
+		// Implied century: YY is 00-99
+		testISO("150603", "2015-06-03T00:00:00Z") // YYMMDD
+		testISO("161201", "2016-12-01T00:00:00Z") // YY-MM-DD
+
+		// Implied year
+		testISO("--1215", "\(Date().year)-12-15T00:00:00Z") // --MMDD
+		testISO("--12-15", "\(Date().year)-12-15T00:00:00Z") // --MM-DD
+		testISO("--12", "\(Date().year)-12-01T00:00:00Z") // --MM
+
+		// Implied year and month
+		testISO("---15", "\(Date().year)-\(String(format: "%02d", Date().month))-15T00:00:00Z") // ---DD
+
+		// Ordinal dates: DDD is the number of the day in the year (1-366)
+		testISO("2015010", "2015-01-10T00:00:00Z") // YYYYDDD (DDD is the number of the day of the year)
+		testISO("2015032", "2015-02-01T00:00:00Z") // YYYY-DDD
+		testISO("15-032", "2015-02-01T00:00:00Z") // YY-DDD
+		testISO("15032", "2015-02-01T00:00:00Z") // YYDDD
+		testISO("-032", "\(Date().year)-02-01T00:00:00Z") // -DDD
+
+		// Week-based dates: ww is the number of the week, and d is the number (1-7) of the day in the week
+		testISO("2018W012", "2018-01-02T00:00:00Z") // yyyyWwwd
+		testISO("2018-W01-2", "2018-01-02T00:00:00Z") // yyyy-Www-d
+		testISO("2018-W01", "2017-12-31T00:00:00Z") // yyyyWww
+		testISO("2018-W01", "2017-12-31T00:00:00Z") // yyyy-Www
+		testISO("18-W01", "2017-12-31T00:00:00Z") // yyWwwd
+		testISO("18-W01-2", "2018-01-02T00:00:00Z") // yy-Www-d
+		testISO("18W01", "2017-12-31T00:00:00Z") // yyWww
+		testISO("18-W01", "2017-12-31T00:00:00Z") // yy-Www
+
+		// Date
+		testISO("1970-01-01", "1970-01-01T00:00:00Z")
+		testISO("2001", "2001-01-01T00:00:00Z")
+		testISO("2001-02-03", "2001-02-03T00:00:00Z")
+		testISO("2001-02-03T04:05", "2001-02-03T04:05:00Z")
+		testISO("2001-02-03T04:05:06.007-06:30", "2001-02-03T04:05:06-06:30")
 	}
 }
