@@ -40,8 +40,6 @@ class TestDateInRegion_Components: XCTestCase {
 			$0.eraNameShort = "a.C."
 			$0.weekdayOrdinal = 1
 			$0.nearestHour = 23
-			$0.firstDayOfWeek = 5
-			$0.lastDayOfWeek = 11
 			$0.yearForWeekOfYear = 2018
 			$0.quarter = 1
 		})
@@ -266,4 +264,13 @@ class TestDateInRegion_Components: XCTestCase {
 		let absoluteDate_iso8601_string = absoluteDate.toISO([.withInternetDateTime])
 		XCTAssert( absoluteDate_iso8601_string == iso8601_string, "Failed respect the absolute ISO date")
 	}
+    
+    func testComparingTimeUnitsWithDateComponents() {
+        SwiftDate.defaultRegion = .local
+
+        let now = Date()
+        XCTAssert((now.addingTimeInterval(3600) - now).in(.hour) == 1, "Failed to compare date")
+        XCTAssert((now.addingTimeInterval(3600) - now) == 1.hours, "Failed to compare date")
+    }
+    
 }
